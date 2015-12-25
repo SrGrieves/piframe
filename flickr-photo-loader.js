@@ -43,7 +43,7 @@ function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
   if(originalPhoto.media != "photo") {
     reject(Error("Landed on a video.  That's bad."));
   } else {
-    var filename = "./photos/" + photoInfo.id + ".jpg";
+    var filename = "./public/images/photos/" + photoInfo.id + ".jpg";
     var fileStream = fs.createWriteStream(filename);
     fileStream.on('finish', function () {
       photoInfo.file = filename;
