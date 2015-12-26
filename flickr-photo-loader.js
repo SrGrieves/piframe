@@ -31,22 +31,29 @@ function getAPicture(resolve, reject) {
 
 function handleSearchResult(err, searchResult, resolve, reject) {
   console.log("Fetching photo with titled \"" + searchResult.photos.photo[0].title + "\".");
-  importantStuff.flickr.photos.getSizes({
-    user_id: importantStuff.flickr.options.user_id,
-    authenticated: true,
-    photo_id: searchResult.photos.photo[0].id
-  }, function(err, sizesResult) { handleGetSizesResult(err,sizesResult,searchResult.photos.photo[0], resolve, reject); });
+  if(searchResult.photos.photo[0].ispublic || searchResult.photos.photo[0].isfamily || searchResult.photos.photo[0].isfriend) {
+    importantStuff.flickr.photos.getSizes({
+      user_id: importantStuff.flickr.options.user_id,
+      authenticated: true,
+      photo_id: searchResult.photos.photo[0].id
+    }, function(err, sizesResult) { handleGetSizesResult(err,sizesResult,searchResult.photos.photo[0], resolve, reject); });
+  } else {
+    console.log("Landed on a private photo.  That's bad.  Let's try again.");
+    getAPicture(resolve, reject);
+  }
 }
 
 function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
   var originalPhoto = _.findWhere(result.sizes.size, { label: "Original"});
   if(originalPhoto.media != "photo") {
-    reject(Error("Landed on a video.  That's bad."));
+    console.log("Landed on a video.  That's bad.  Let's try again.");
+    getAPicture(resolve, reject);
   } else {
     var filename = "./public/images/photos/" + photoInfo.id + ".jpg";
+    var fileUrl = "/images/photos/" + photoInfo.id + ".jpg";
     var fileStream = fs.createWriteStream(filename);
     fileStream.on('finish', function () {
-      photoInfo.file = filename;
+      photoInfo.file = fileUrl;
       resolve(photoInfo);
     });
     var request = https.get(originalPhoto.source, function(response) {
