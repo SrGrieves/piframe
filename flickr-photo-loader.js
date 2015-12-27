@@ -5,7 +5,7 @@ var https = require('https');
 var fs = require('fs');
 var Flickr = require("flickrapi");
 
-function getRandomPhoto(flickrOptions) {
+function getSingleRandomPhoto(flickrOptions) {
   var promise = new Promise(function(resolve, reject) {
     Flickr.authenticate(flickrOptions, function(error, flickr) {
       importantStuff.flickr = flickr;
@@ -62,4 +62,4 @@ function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
   }
 }
 
-module.exports.getRandomPhoto = getRandomPhoto;
+module.exports.getSingleRandomPhoto = getSingleRandomPhoto;
