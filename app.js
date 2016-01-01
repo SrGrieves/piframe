@@ -6,6 +6,7 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
 var routes = require('./routes/index');
+var APIroutes = require('./routes/API');
 var users = require('./routes/users');
 
 var queueBuilder = require('./photo-queue-builder');
@@ -26,6 +27,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', routes);
+app.use('/API', APIroutes);
 app.use('/users', users);
 
 // catch 404 and forward to error handler

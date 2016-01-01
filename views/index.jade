@@ -1,5 +1,10 @@
 extends layout
 
+block scripts
+  script(src='/javascripts/image-viewer.models.js')
+  script(src='/javascripts/image-viewer.views.js')
+block styles
+  link(rel='stylesheet', href='/stylesheets/image-viewer.css')
+
 block content
-  h1= title
-  p Welcome to #{title}
+  div#image-viewer.container

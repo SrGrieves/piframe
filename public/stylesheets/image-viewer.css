@@ -1,0 +1,34 @@
+html, body {
+  background-color: #1a1a1a;
+  padding: 0;
+  margin: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+div#image-viewer {
+  position: absolute;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+div.viewer-frame {
+  position: absolute;
+  padding: 0;
+  margin: 0;
+  width: 90%;
+  height: 90%;
+  margin-left: 5%;
+  margin-top: 5%;
+}
+
+div.viewer-frame img {
+  object-fit: contain;
+  object-position: 50% 50%;
+  width: 100%;
+  height: 100%;
+}

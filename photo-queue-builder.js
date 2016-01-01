@@ -23,23 +23,27 @@ function initializeQueue(name) {
 
 
 function addRandomPhotoToQueue(queueName, previousItemId) {
+
+  var displaySeconds = 30;
+
   var newQueueItem = {
     id: uuid.v4(),
     status: "loading",
-    displaySeconds: 20,
+    expiration: new Date((new Date).getTime() + (displaySeconds * 1000)),
     queue: queueName,
     photo: null,
     nextQueueItemId: null
   };
-  queueRepo.saveQueueItem(newQueueItem);
-
-  loadQueueItemPhoto(newQueueItem.id);
 
   if(previousItemId) {
     var previousItem = queueRepo.loadQueueItem(previousItemId);
     previousItem.nextQueueItemId = newQueueItem.id;
+    newQueueItem.expiration = new Date(previousItem.expiration.getTime() + (displaySeconds * 1000));
     queueRepo.saveQueueItem(previousItem);
   }
+
+  queueRepo.saveQueueItem(newQueueItem);
+  loadQueueItemPhoto(newQueueItem.id);
 
   return newQueueItem.id;
 }
