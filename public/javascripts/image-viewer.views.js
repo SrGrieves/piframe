@@ -5,54 +5,71 @@ $(function() {
     el: "div#image-viewer",
 
     initialize: function() {
-      _.bindAll(this,"loadNextQueueItem","render");
+      _.bindAll(this,"loadNextQueueItem","render","addFrameView");
       this.model = new QueueModel;
       this.collection = new Backbone.Collection;
       this.listenTo(this.model,"sync",function() { this.loadNextQueueItem() });
-      //this.listenTo(this.collection,"add",this.render);
+      this.listenTo(this.collection,"add",this.addFrameView);
       this.initQueue();
     },
 
+
     loadNextQueueItem: function(queueItemId) {
-      console.log("Getting queue items.");
-      if(!queueItemId && this.collection.length == 0)
-        queueItemId = this.model.get("currentItem");
-      else if(!queueItemId && this.collection.at(this.collection.length - 1).get("nextQueueItemId"))
-        queueItemId = this.collection.at(this.collection.length - 1).get("nextQueueItemId");
+      console.log("Queue current has " + this.collection.length + " item(s).  Loading next (" + queueItemId + ")");
 
       var that = this;
-      if(queueItemId) {
-        var currentQueueItem = new QueueItemModel({id: queueItemId});
-        currentQueueItem.fetch({
-          success: function(queueItemModel) {
-            var expired = new Date(queueItemModel.get("expiration")) <= (new Date);
-            if(!expired)
-              that.collection.push(queueItemModel);
-            else {
-              console.log("Skipping expired item");
-            }
-            if(queueItemModel.get("nextQueueItemId"))
-              that.loadNextQueueItem(queueItemModel.get("nextQueueItemId"))
-            else {
-              console.log("Got to the end of it. We'll check again in a minute.");
-              setTimeout(function() { that.loadNextQueueItem(); }, 2000);
-            }
-          },
-          error: function() {
-            alert("Failed to get queue item."); }});
-            setTimeout(function() {
-              that.initQueue();
-            }, 2000);
+      if(!queueItemId)
+        throw "Tried to load null!";
+
+      var currentQueueItem = new QueueItemModel({id: queueItemId});
+      currentQueueItem.fetch({
+        success: function(queueItemModel) {
+          that.handleNewQueueItem(queueItemModel);
+        },
+        error: function() {
+          alert("Failed to get queue item.");
+        }
+      });
+    },
+
+    handleNewQueueItem(queueItemModel) {
+      var expired = new Date(queueItemModel.get("expiration")) <= (new Date);
+      if(expired || this.collection.get(queueItemModel.id))
+        console.log("Skipping expired or already existing item");
+      else {
+        this.collection.push(queueItemModel);
+      }
+
+      if(queueItemModel.get("nextQueueItemId"))
+        this.loadNextQueueItem(queueItemModel.get("nextQueueItemId"))
+      else {
+        console.log("Latest item appears to be the last one. Let's poll it.");
+        this.pollTailItemUntilItPointsToNext();
+      }
+    },
+
+    pollTailItemUntilItPointsToNext: function() {
+      var that = this;
+      if(!this.collection || !this.collection.length) {
+        console.log("Nothing to poll anymore.  Everything must have expired.  Restarting in 30 seconds.")
+        setTimeout(function() { that.initQueue(); }, 30000)
+      } else if(this.collection.at(this.collection.length - 1).get("nextQueueItemId")) {
+        console.log("Polling Success! Last item now has a pointer.  Loading.")
+        this.loadNextQueueItem(this.collection.at(this.collection.length - 1).get("nextQueueItemId"));
       } else {
-        console.log("No queue item to load.");
-        setTimeout(function() {
-          that.initQueue();
-        }, 30000);
+        console.log("Last queue item still doesn't have a pointer.  We'll check again in 15 seconds.");
+        setTimeout(function() { that.pollTailItemUntilItPointsToNext(); }, 15000);
       }
     },
 
     initQueue: function() {
+      var that = this;
       this.model.fetch({
+        success: function() {
+          queueItemId = that.model.get("currentItem");
+          console.log("Start up.  Getting current queue item from queue status: " + queueItemId);
+          that.loadNextQueueItem(queueItemId);
+        },
         error: function() {
           alert("Failed to get queue.");
         }
@@ -60,9 +77,13 @@ $(function() {
       //this.render();
     },
 
+    addFrameView: function(queueItemModel) {
+      var view = new FrameView({model: queueItemModel, isActive: false})
+      $(this.el).append(view.render().el);
+    },
+
     render: function() {
-      clearTimeout(this.frameRefreshTimerId);
-      console.log("Checking on queue stuff.")
+      console.log("Checking if any frames need updating.")
       if(this.collection && this.collection.length > 0) {
         var noFrameDisplayed = $(".viewer-frame").length == 0;
         if(noFrameDisplayed) {
@@ -84,7 +105,6 @@ $(function() {
             $(this.el).append(view.render().el);
           }
         }
-        this.frameRefreshTimerId = setTimeout(this.render,2000);
       }
       return this;
     }
@@ -96,6 +116,7 @@ $(function() {
     className: "viewer-frame hidden",
 
     initialize: function(options) {
+      $(this.el).attr("id",this.model.id);
       this.options = options;
       this.listenTo(this.model,"expire", this.remove)
     },

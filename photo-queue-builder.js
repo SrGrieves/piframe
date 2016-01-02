@@ -24,7 +24,7 @@ function initializeQueue(name) {
 
 function addRandomPhotoToQueue(queueName, previousItemId) {
 
-  var displaySeconds = 30;
+  var displaySeconds = 60 * 5;
 
   var newQueueItem = {
     id: uuid.v4(),
