@@ -8,11 +8,11 @@ $(function() {
       _.bindAll(this,"loadNextQueueItem","render","addFrameView");
       this.model = new QueueModel;
       this.collection = new Backbone.Collection;
-      this.listenTo(this.model,"sync",function() { this.loadNextQueueItem() });
+      //this.listenTo(this.model,"sync",function() { this.loadNextQueueItem() });
       this.listenTo(this.collection,"add",this.addFrameView);
       this.initQueue();
+      setInterval(this.render,5000);
     },
-
 
     loadNextQueueItem: function(queueItemId) {
       console.log("Queue current has " + this.collection.length + " item(s).  Loading next (" + queueItemId + ")");
@@ -83,27 +83,20 @@ $(function() {
     },
 
     render: function() {
-      console.log("Checking if any frames need updating.")
-      if(this.collection && this.collection.length > 0) {
-        var noFrameDisplayed = $(".viewer-frame").length == 0;
-        if(noFrameDisplayed) {
-          console.log("No frame on display.  Let's start things up.")
-          var view = new FrameView({model: this.collection.at(0), isActive: true})
-          $(this.el).append(view.render().el);
-        } else {
-          var frameShouldBeUpdated = new Date(this.collection.at(0).get("expiration")) <= (new Date);
-          if(frameShouldBeUpdated)
-            console.log("Expired!");
-          var frameCanBeUpdated = this.collection.length > 1;
-          if(frameShouldBeUpdated && frameCanBeUpdated) {
-            console.log("Removing");
-            var expiredItem = this.collection.at(0)
-            this.collection.remove(expiredItem);
-            expiredItem.trigger("expire");
-
-            var view = new FrameView({model: this.collection.at(0), isActive: true})
-            $(this.el).append(view.render().el);
+      console.log("Checking if any frames need updating.");
+      if(this.collection && this.collection.length) {
+        var topItem = this.collection.at(0);
+        var expired = new Date(topItem.get("expiration")) < new Date;
+        if(expired) {
+          console.log("First item is expired.  Removing");
+          topItem.trigger("expired");
+          this.collection.remove(topItem);
+          if(this.collection.length) {
+            var newTopItem = this.collection.at(0);
+            newTopItem.trigger("activated");
           }
+        } else if($(".viewer-frame.visible").length == 0) {
+          topItem.trigger("activated");
         }
       }
       return this;
@@ -118,17 +111,31 @@ $(function() {
     initialize: function(options) {
       $(this.el).attr("id",this.model.id);
       this.options = options;
-      this.listenTo(this.model,"expire", this.remove)
+      this.listenTo(this.model,"expired", this.goAway);
+      this.listenTo(this.model,"activated", this.show);
     },
 
     render: function() {
 
       $(this.el).html("<img src=\"" + this.model.get("photo").file + "\" />");
 
-      if(this.options.isActive)
+      if(this.options.isActive) {
         $(this.el).removeClass("hidden");
+        $(this.el).addClass("visible");
+      }
 
       return this;
+    },
+
+    show: function() {
+      this.options.isActive = true;
+      $(this.el).removeClass("hidden");
+      $(this.el).addClass("visible");
+    },
+
+    goAway: function() {
+      console.log("Goodbye.");
+      this.remove();
     }
 
   });
