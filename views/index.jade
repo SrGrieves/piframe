@@ -1,6 +1,7 @@
 extends layout
 
 block scripts
+  script(src='/javascripts/exif.js')
   script(src='/javascripts/image-viewer.models.js')
   script(src='/javascripts/image-viewer.views.js')
 block styles
@@ -8,3 +9,5 @@ block styles
 
 block content
   div#image-viewer.container
+  div.captions.left
+  div.captions.right

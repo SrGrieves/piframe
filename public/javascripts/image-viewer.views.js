@@ -11,11 +11,11 @@ $(function() {
       //this.listenTo(this.model,"sync",function() { this.loadNextQueueItem() });
       this.listenTo(this.collection,"add",this.addFrameView);
       this.initQueue();
-      setInterval(this.render,5000);
+      setInterval(this.render,2000);
     },
 
     loadNextQueueItem: function(queueItemId) {
-      console.log("Queue current has " + this.collection.length + " item(s).  Loading next (" + queueItemId + ")");
+      console.log("Queue currently has " + this.collection.length + " item(s).  Loading next: " + queueItemId + "");
 
       var that = this;
       if(!queueItemId)
@@ -26,8 +26,8 @@ $(function() {
         success: function(queueItemModel) {
           that.handleNewQueueItem(queueItemModel);
         },
-        error: function() {
-          alert("Failed to get queue item.");
+        error: function(err) {
+          alert("Failed to get queue item: " + err);
         }
       });
     },
@@ -43,7 +43,6 @@ $(function() {
       if(queueItemModel.get("nextQueueItemId"))
         this.loadNextQueueItem(queueItemModel.get("nextQueueItemId"))
       else {
-        console.log("Latest item appears to be the last one. Let's poll it.");
         this.pollTailItemUntilItPointsToNext();
       }
     },
@@ -54,11 +53,19 @@ $(function() {
         console.log("Nothing to poll anymore.  Everything must have expired.  Restarting in 30 seconds.")
         setTimeout(function() { that.initQueue(); }, 30000)
       } else if(this.collection.at(this.collection.length - 1).get("nextQueueItemId")) {
-        console.log("Polling Success! Last item now has a pointer.  Loading.")
         this.loadNextQueueItem(this.collection.at(this.collection.length - 1).get("nextQueueItemId"));
       } else {
-        console.log("Last queue item still doesn't have a pointer.  We'll check again in 15 seconds.");
-        setTimeout(function() { that.pollTailItemUntilItPointsToNext(); }, 15000);
+        setTimeout(function() {
+          that.collection.at(that.collection.length - 1).fetch(
+          {
+            success: function() {
+              that.pollTailItemUntilItPointsToNext();
+            },
+            error: function() {
+              alert("Failed to reload tail item.")
+            }
+          });
+        }, 15000);
       }
     },
 
@@ -70,8 +77,8 @@ $(function() {
           console.log("Start up.  Getting current queue item from queue status: " + queueItemId);
           that.loadNextQueueItem(queueItemId);
         },
-        error: function() {
-          alert("Failed to get queue.");
+        error: function(err) {
+          alert("Failed to get queue: " + err.message);
         }
       });
       //this.render();
@@ -80,15 +87,14 @@ $(function() {
     addFrameView: function(queueItemModel) {
       var view = new FrameView({model: queueItemModel, isActive: false})
       $(this.el).append(view.render().el);
+      //view.fixRotation();
     },
 
     render: function() {
-      console.log("Checking if any frames need updating.");
       if(this.collection && this.collection.length) {
         var topItem = this.collection.at(0);
         var expired = new Date(topItem.get("expiration")) < new Date;
         if(expired) {
-          console.log("First item is expired.  Removing");
           topItem.trigger("expired");
           this.collection.remove(topItem);
           if(this.collection.length) {
@@ -116,8 +122,35 @@ $(function() {
     },
 
     render: function() {
+      var photo = this.model.get("photo");
+      if(photo) {
+        $(this.el).html("<img />");
 
-      $(this.el).html("<img src=\"" + this.model.get("photo").file + "\" />");
+        var orientation = null;
+        this.datetime = null;
+        var that = this;
+        this.$("img")[0].onload = function() {
+          EXIF.getData(this, function() {
+            that.datetime = EXIF.getTag(this, "DateTime");
+            orientation = EXIF.getTag(this, "Orientation");
+            console.log(photo.title + "(or = " + orientation + ") from "+ that.datetime);
+            if(orientation == 3) {
+              $(that.el).css("transform","rotate(180deg)");
+            }
+            else if(orientation == 6) {
+              $(that.el).css("transform","rotate(90deg)");
+            }
+            else if(orientation == 8) {
+              $(that.el).css("transform","rotate(270deg)");
+            }
+          });
+        };
+
+
+        this.$("img").attr("src",photo.file);
+      } else {
+        console.log("Item " + this.model.id + " is photoless.  :(");
+      }
 
       if(this.options.isActive) {
         $(this.el).removeClass("hidden");
@@ -129,12 +162,15 @@ $(function() {
 
     show: function() {
       this.options.isActive = true;
+      $("div.captions.left").text(this.datetime);
+      $("div.captions.right").text(this.model.get("photo").title);
       $(this.el).removeClass("hidden");
       $(this.el).addClass("visible");
     },
 
     goAway: function() {
-      console.log("Goodbye.");
+      $("div.captions.left").text("");
+      $("div.captions.right").text("");
       this.remove();
     }
 

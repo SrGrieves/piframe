@@ -21,10 +21,19 @@ function initializeQueue(name) {
   queueRepo.saveQueue(queue);
 }
 
+function incrementQueue(queueName) {
+  console.log("Adding photo to tail end of queue \"" + queueName + "\"");
+  var tailItem = queueRepo.loadQueueTailItem(queueName);
+  if(tailItem) {
+    addRandomPhotoToQueue(queueName,tailItem.id);
+  } else {
+    console.log("No tail.");
+  }
+}
 
 function addRandomPhotoToQueue(queueName, previousItemId) {
 
-  var displaySeconds = 20;
+  var displaySeconds = 5;
 
   var newQueueItem = {
     id: uuid.v4(),
@@ -72,3 +81,4 @@ function loadQueueItemPhoto(queueItemId) {
 
 module.exports.initializeQueue = initializeQueue;
 module.exports.addRandomPhotoToQueue = addRandomPhotoToQueue;
+module.exports.incrementQueue = incrementQueue;
