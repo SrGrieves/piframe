@@ -5,17 +5,16 @@ $(function() {
     el: "div#image-viewer",
 
     initialize: function() {
-      _.bindAll(this,"loadNextQueueItem","render","addFrameView");
+      _.bindAll(this,"loadNextQueueItem","render","addFrameView","initQueue","pollTailItem");
       this.model = new QueueModel;
       this.collection = new Backbone.Collection;
-      //this.listenTo(this.model,"sync",function() { this.loadNextQueueItem() });
       this.listenTo(this.collection,"add",this.addFrameView);
       this.initQueue();
-      setInterval(this.render,2000);
+      setInterval(this.render,1000);
     },
 
     loadNextQueueItem: function(queueItemId) {
-      console.log("Queue currently has " + this.collection.length + " item(s).  Loading next: " + queueItemId + "");
+      //console.log("Queue currently has " + this.collection.length + " item(s).  Loading next: " + queueItemId + "");
 
       var that = this;
       if(!queueItemId)
@@ -26,46 +25,54 @@ $(function() {
         success: function(queueItemModel) {
           that.handleNewQueueItem(queueItemModel);
         },
-        error: function(err) {
-          alert("Failed to get queue item: " + err);
+        error: function(model, response, options) {
+          console.error("Failed to get queue item.  Restarting everything in 5 seconds: " + options.errorThrown);
+          setTimeout(that.initQueue, 5000);
         }
       });
     },
 
     handleNewQueueItem(queueItemModel) {
       var expired = new Date(queueItemModel.get("expiration")) <= (new Date);
+      var ready = queueItemModel.get("status") == "ready";
+      var queueLength = this.collection.length;
       if(expired || this.collection.get(queueItemModel.id))
         console.log("Skipping expired or already existing item");
-      else {
+      else if(ready) {
         this.collection.push(queueItemModel);
       }
 
-      if(queueItemModel.get("nextQueueItemId"))
+      if(ready && queueItemModel.get("nextQueueItemId"))
         this.loadNextQueueItem(queueItemModel.get("nextQueueItemId"))
       else {
-        this.pollTailItemUntilItPointsToNext();
+        setTimeout(this.pollTailItem,10000);
       }
     },
 
-    pollTailItemUntilItPointsToNext: function() {
+    pollTailItem: function() {
       var that = this;
       if(!this.collection || !this.collection.length) {
-        console.log("Nothing to poll anymore.  Everything must have expired.  Restarting in 30 seconds.")
-        setTimeout(function() { that.initQueue(); }, 30000)
-      } else if(this.collection.at(this.collection.length - 1).get("nextQueueItemId")) {
-        this.loadNextQueueItem(this.collection.at(this.collection.length - 1).get("nextQueueItemId"));
+        console.log("Nothing to poll anymore.  Everything must have expired.  Restarting in 5 seconds.")
+        setTimeout(function() { that.initQueue(); }, 5000)
       } else {
-        setTimeout(function() {
-          that.collection.at(that.collection.length - 1).fetch(
-          {
-            success: function() {
-              that.pollTailItemUntilItPointsToNext();
-            },
-            error: function() {
-              alert("Failed to reload tail item.")
-            }
-          });
-        }, 15000);
+        var tailItem = this.collection.at(this.collection.length - 1);
+        var status = tailItem.get("status");
+        var nextQueueItemId = tailItem.get("nextQueueItemId");
+        if(status == "ready" && nextQueueItemId) {
+          this.loadNextQueueItem(nextQueueItemId);
+        } else {
+          setTimeout(function() {
+            tailItem.fetch(
+            {
+              success: function() {
+                that.pollTailItem();
+              },
+              error: function() {
+                alert("Failed to reload tail item.")
+              }
+            });
+          }, 10000);
+        }
       }
     },
 
@@ -77,8 +84,8 @@ $(function() {
           console.log("Start up.  Getting current queue item from queue status: " + queueItemId);
           that.loadNextQueueItem(queueItemId);
         },
-        error: function(err) {
-          alert("Failed to get queue: " + err.message);
+        error: function(model, response, options) {
+          alert("Failed to get queue: " + options.errorThrown);
         }
       });
       //this.render();

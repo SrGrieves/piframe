@@ -62,4 +62,13 @@ function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
   }
 }
 
+function deleteFile(photoId) {
+  console.log("Deleting " + photoId);
+  fs.unlink("./public/images/photos/" + photoId + ".jpg", function(err) {
+    if(err)
+      console.log("Delete called back error: " + err);
+  })
+}
+
 module.exports.getSingleRandomPhoto = getSingleRandomPhoto;
+module.exports.deleteFile = deleteFile;

@@ -5,11 +5,19 @@ var flickrConfig = require("../flickr.config");
 var queueRepo = require("../photo-queue-repo")
 
 router.get('/queue/:queueName', function(req, res, next) {
-    res.json(queueRepo.loadQueue(req.params.queueName));
+  var queue = queueRepo.loadQueue(req.params.queueName);
+  if(!queue)
+    res.status(404).send('Not found');
+  else
+    res.json(queue);
 });
 
 router.get('/queueitem/:itemId', function(req, res, next) {
-    res.json(queueRepo.loadQueueItem(req.params.itemId));
+  var queueItem = queueRepo.loadQueueItem(req.params.itemId);
+  if(!queueItem)
+    res.status(404).send('Not found');
+  else
+    res.json(queueItem);
 });
 
 module.exports = router;

@@ -8,9 +8,17 @@ var bodyParser = require('body-parser');
 var routes = require('./routes/index');
 var APIroutes = require('./routes/API');
 var users = require('./routes/users');
-
+var fs = require('fs');
+var rimraf = require('rimraf');
 var queueBuilder = require('./photo-queue-builder');
-queueBuilder.initializeQueue("default");
+
+rimraf("./public/images/photos/*", function(err) {
+  if(err)
+    console.log("Could not clear photos folder: " + err);
+  else
+    queueBuilder.initializeQueue("default");  
+});
+
 
 var app = express();
 

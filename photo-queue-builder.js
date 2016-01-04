@@ -5,35 +5,53 @@ var queueRepo = require("./photo-queue-repo")
 
 function initializeQueue(name) {
 
-  var currentQueueItemId = addRandomPhotoToQueue(name);
+  var currentQueueItemId = incrementQueue(name);
   var i = 0;
-  var nextQueueItemId = currentQueueItemId;
-  while(i < 5) {
-    nextQueueItemId = addRandomPhotoToQueue(name,nextQueueItemId);
+  while(i < 10) {
+    incrementQueue(name);
     i++;
   }
 
   var queue = {
     name: name,
-    currentItem: currentQueueItemId
+    currentItem: currentQueueItemId,
+    size: 0
   };
 
   queueRepo.saveQueue(queue);
 }
 
 function incrementQueue(queueName) {
+  var incrementId = -1;
   console.log("Adding photo to tail end of queue \"" + queueName + "\"");
   var tailItem = queueRepo.loadQueueTailItem(queueName);
   if(tailItem) {
-    addRandomPhotoToQueue(queueName,tailItem.id);
+    incrementId = addRandomPhotoToQueue(queueName,tailItem.id);
   } else {
-    console.log("No tail.");
+    console.log("No tail.  Assuming new queue");
+    incrementId = addRandomPhotoToQueue(queueName);
+  }
+  return incrementId;
+}
+
+function trimQueue(queueName) {
+  console.log("Removing first item of queue");
+  var queue = queueRepo.loadQueue(queueName);
+  if(queue) {
+    var currentItemId = queue.currentItem;
+    var currentItem = queueRepo.loadQueueItem(currentItemId);
+    queue.currentItem = currentItem.nextQueueItemId;
+    queueRepo.removeQueueItem(currentItemId);
+    if(currentItem.photo)
+      flickrPhotos.deleteFile(currentItem.photo.id);
+    queueRepo.saveQueue(queue);
+    incrementQueue(queueName);
   }
 }
 
 function addRandomPhotoToQueue(queueName, previousItemId) {
 
-  var displaySeconds = 5;
+  var displaySeconds = 10;
 
   var newQueueItem = {
     id: uuid.v4(),
@@ -52,33 +70,36 @@ function addRandomPhotoToQueue(queueName, previousItemId) {
   }
 
   queueRepo.saveQueueItem(newQueueItem);
-  loadQueueItemPhoto(newQueueItem.id);
 
+  var expiresIn = new Date(newQueueItem.expiration).getTime() - new Date().getTime();
+  loadQueueItemPhoto(newQueueItem.id);
+  setTimeout(function() { trimQueue(queueName)}, expiresIn);
   return newQueueItem.id;
 }
 
 function loadQueueItemPhoto(queueItemId) {
-  flickrPhotos.getSingleRandomPhoto(flickrConfig).then(function(result) {
-    var queueItem = queueRepo.loadQueueItem(queueItemId);
-    if(queueItem && queueItem.status == "loading") {
-      queueItem.photo = result;
-      queueItem.status = "ready";
-      queueRepo.saveQueueItem(queueItem);
-    } else {
-      console.log("Queue item " + queueItemId + " missing");
-    }
-  }, function(err) {
-    var queueItem = queueRepo.loadQueueItem(queueItemId);
-    if(queueItem && queueItem.status == "loading") {
-      queueItem.status = "failed";
-      queueItem.error = err;
-      queueRepo.saveQueueItem(queueItem);
-    } else {
-      console.log("Queue item " + queueItemId + " missing");
-    }
-  });
+  flickrPhotos.getSingleRandomPhoto(flickrConfig).then(
+    function(result) {
+      var queueItem = queueRepo.loadQueueItem(queueItemId);
+      if(queueItem && queueItem.status == "loading") {
+        queueItem.photo = result;
+        queueItem.status = "ready";
+        queueRepo.saveQueueItem(queueItem);
+      } else {
+        console.log("Queue item " + queueItemId + " missing");
+      }
+    },
+    function(err) {
+      var queueItem = queueRepo.loadQueueItem(queueItemId);
+      if(queueItem && queueItem.status == "loading") {
+        queueItem.status = "failed";
+        queueItem.error = err;
+        queueRepo.saveQueueItem(queueItem);
+      } else {
+        console.log("Queue item " + queueItemId + " missing");
+      }
+    });
 }
 
 module.exports.initializeQueue = initializeQueue;
-module.exports.addRandomPhotoToQueue = addRandomPhotoToQueue;
 module.exports.incrementQueue = incrementQueue;

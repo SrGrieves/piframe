@@ -21,10 +21,10 @@ function loadQueue(name) {
 }
 
 function saveQueueItem(queueItem) {
-  var expiresInMs = new Date(queueItem.expiration).getTime() - new Date().getTime();
-  var expiresInSeconds = Math.floor(expiresInMs / 1000);
-  console.log("Queue item expires in " + expiresInSeconds + "s.")
-  queueCache.set(queueItem.id, queueItem,expiresInSeconds);
+  //var expiresInMs = new Date(queueItem.expiration).getTime() - new Date().getTime();
+  //var expiresInSeconds = Math.floor(expiresInMs / 1000);
+  //queueCache.set(queueItem.id, queueItem,expiresInSeconds);
+  queueCache.set(queueItem.id, queueItem); //expiration new handled with timers at queue builder level
   if(!queueItem.nextQueueItemId) {
     queueCache.set(queueItem.queue + "/tail",queueItem.id);
     console.log("Set " + queueItem.queue + "/tail to " + queueItem.id);
@@ -33,6 +33,10 @@ function saveQueueItem(queueItem) {
 
 function loadQueueItem(queueItemId) {
   return queueCache.get(queueItemId);
+}
+
+function removeQueueItem(queueItemId) {
+  queueCache.del(queueItemId);
 }
 
 function loadQueueTailItem(queueName) {
@@ -45,26 +49,10 @@ function loadQueueTailItem(queueName) {
   return tailItem;
 }
 
-function handleQueueItemExpiration(key, value) {
-  console.log("Item expired.  Moving along.");
-  if(value.queue) {
-    var queue = loadQueue(value.queue);
-    if(queue) {
-      if(queue.currentItem == key) {
-        queue.currentItem = null;
-        if(value.nextQueueItemId) {
-          queue.currentItem = value.nextQueueItemId;
-          console.log("Current queue item is now " + queue.currentItem);
-        }
-      }
-      saveQueue(queue);
-      queueBuilder.incrementQueue(value.queue);
-    }
-  }
-}
 
 module.exports.saveQueue = saveQueue;
 module.exports.loadQueue = loadQueue;
 module.exports.saveQueueItem = saveQueueItem;
 module.exports.loadQueueItem = loadQueueItem;
+module.exports.removeQueueItem = removeQueueItem;
 module.exports.loadQueueTailItem = loadQueueTailItem;
